@@ -1,13 +1,15 @@
 // ==UserScript==
 // @name         Auto CHS→CHT (Taiwan)
 // @name:zh-TW   自動繁體化（台灣）
-// @version      1.0.0
+// @version      1.0.2
 // @description  Automatically detects Simplified Chinese pages and converts to Traditional Chinese (Taiwan) using opencc-js s2twp.
 // @description:zh-TW  自動偵測簡體中文網頁，使用 opencc-js s2twp 轉換為台灣繁體中文。
 // @author       ethanics
 // @match        *://*/*
 // @grant        none
 // @require      https://cdn.jsdelivr.net/npm/opencc-js@1.4.1/dist/umd/full.js
+// @downloadURL  https://raw.githubusercontent.com/ethanics/auto-chs-to-cht/refs/heads/main/auto-chs-to-cht.user.js
+// @updateURL    https://raw.githubusercontent.com/ethanics/auto-chs-to-cht/refs/heads/main/auto-chs-to-cht.user.js
 // @run-at       document-end
 // ==/UserScript==
 
@@ -155,8 +157,25 @@
 
   const CONVERT_ATTRS = ['placeholder', 'alt', 'title', 'aria-label'];
 
+  function convertAttribute(element, attr) {
+    if (!element || shouldSkipElement(element) || CONVERT_ATTRS.indexOf(attr) === -1) {
+      return;
+    }
+    const val = element.getAttribute(attr);
+    if (!val) {
+      return;
+    }
+    const converted = converter(val);
+    if (val !== converted) {
+      element.setAttribute(attr, converted);
+    }
+  }
+
   function convertAttributes(root) {
-    if (!root || root.nodeType !== Node.ELEMENT_NODE) {
+    if (
+      !root ||
+      (root.nodeType !== Node.ELEMENT_NODE && root.nodeType !== Node.DOCUMENT_FRAGMENT_NODE)
+    ) {
       return;
     }
 
@@ -180,24 +199,15 @@
         continue;
       }
       for (let j = 0; j < CONVERT_ATTRS.length; j++) {
-        const attr = CONVERT_ATTRS[j];
-        const val = el.getAttribute(attr);
-        if (val) {
-          const converted = converter(val);
-          if (val !== converted) {
-            el.setAttribute(attr, converted);
-          }
-        }
+        convertAttribute(el, CONVERT_ATTRS[j]);
       }
     }
   }
 
+  // OpenCC is idempotent, so changed nodes are reprocessed instead of tracking stale markers.
   function convertSingleTextNode(node) {
     const parent = node.parentElement;
     if (!parent) {
-      return;
-    }
-    if (parent.hasAttribute('data-chs-converted')) {
       return;
     }
     if (shouldSkipElement(parent)) {
@@ -212,15 +222,17 @@
     if (original !== converted) {
       node.nodeValue = converted;
     }
-    parent.setAttribute('data-chs-converted', '1');
   }
 
   function convertSubtree(root) {
-    if (!root || root.nodeType !== Node.ELEMENT_NODE) {
+    if (
+      !root ||
+      (root.nodeType !== Node.ELEMENT_NODE && root.nodeType !== Node.DOCUMENT_FRAGMENT_NODE)
+    ) {
       return;
     }
 
-    if (shouldSkipElement(root)) {
+    if (root.nodeType === Node.ELEMENT_NODE && shouldSkipElement(root)) {
       return;
     }
 
@@ -232,9 +244,6 @@
         acceptNode(node) {
           const parent = node.parentElement;
           if (!parent) {
-            return NodeFilter.FILTER_REJECT;
-          }
-          if (parent.hasAttribute('data-chs-converted')) {
             return NodeFilter.FILTER_REJECT;
           }
           if (shouldSkipElement(parent)) {
@@ -256,47 +265,85 @@
 
     for (let i = 0; i < textNodes.length; i++) {
       const textNode = textNodes[i];
-      const parent = textNode.parentElement;
       const original = textNode.nodeValue;
       const converted = converter(original);
       if (original !== converted) {
         textNode.nodeValue = converted;
-      }
-      if (parent) {
-        parent.setAttribute('data-chs-converted', '1');
       }
     }
 
     convertAttributes(root);
   }
 
-  function observeDynamicChanges() {
-    if (!document.body) {
+  const observedRoots = new WeakSet();
+  let dynamicObserver = null;
+
+  function observeShadowRoots(root) {
+    if (!root || !root.querySelectorAll) {
       return;
     }
 
-    const observer = new MutationObserver(function (mutations) {
-      for (let i = 0; i < mutations.length; i++) {
-        const mutation = mutations[i];
-        if (mutation.type === 'childList') {
+    const elements = [];
+    if (root.nodeType === Node.ELEMENT_NODE) {
+      elements.push(root);
+    }
+    const descendants = root.querySelectorAll('*');
+    for (let i = 0; i < descendants.length; i++) {
+      elements.push(descendants[i]);
+    }
+
+    for (let i = 0; i < elements.length; i++) {
+      const shadowRoot = elements[i].shadowRoot;
+      if (shadowRoot && !observedRoots.has(shadowRoot)) {
+        observeDynamicChanges(shadowRoot);
+        convertSubtree(shadowRoot);
+      }
+    }
+  }
+
+  function observeDynamicChanges(root) {
+    if (!root) {
+      return;
+    }
+
+    if (!dynamicObserver) {
+      dynamicObserver = new MutationObserver(function (mutations) {
+        for (let i = 0; i < mutations.length; i++) {
+          const mutation = mutations[i];
+          if (mutation.type === 'attributes') {
+            convertAttribute(mutation.target, mutation.attributeName);
+            continue;
+          }
+          if (mutation.type === 'characterData') {
+            convertSingleTextNode(mutation.target);
+            continue;
+          }
           const addedNodes = mutation.addedNodes;
           for (let j = 0; j < addedNodes.length; j++) {
             const node = addedNodes[j];
             if (node.nodeType === Node.ELEMENT_NODE) {
               convertSubtree(node);
+              observeShadowRoots(node);
             } else if (node.nodeType === Node.TEXT_NODE) {
               convertSingleTextNode(node);
             }
           }
         }
-      }
-    });
+      });
+    }
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      characterData: false,
-    });
+    if (!observedRoots.has(root)) {
+      dynamicObserver.observe(root, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: CONVERT_ATTRS,
+      });
+      observedRoots.add(root);
+    }
+
+    observeShadowRoots(root);
   }
 
   function main() {
@@ -310,7 +357,7 @@
 
     if (document.body) {
       convertSubtree(document.body);
-      observeDynamicChanges();
+      observeDynamicChanges(document);
     }
   }
 
