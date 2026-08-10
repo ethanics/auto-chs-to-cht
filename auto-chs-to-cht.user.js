@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto CHS→CHT (Taiwan)
 // @name:zh-TW   自動繁體化（台灣）
-// @version      1.0.2
+// @version      1.0.3
 // @description  Automatically detects Simplified Chinese pages and converts to Traditional Chinese (Taiwan) using opencc-js s2twp.
 // @description:zh-TW  自動偵測簡體中文網頁，使用 opencc-js s2twp 轉換為台灣繁體中文。
 // @author       ethanics
@@ -52,10 +52,6 @@
       lang.startsWith('zh-hk-') ||
       lang.startsWith('zh-mo-')
     ) {
-      return false;
-    }
-
-    if (!lang.startsWith('zh')) {
       return false;
     }
 
