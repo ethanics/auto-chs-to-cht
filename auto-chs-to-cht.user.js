@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto CHS→CHT (Taiwan)
 // @name:zh-TW   自動繁體化（台灣）
-// @version      1.0.3
+// @version      1.0.4
 // @description  Automatically detects Simplified Chinese pages and converts to Traditional Chinese (Taiwan) using opencc-js s2twp.
 // @description:zh-TW  自動偵測簡體中文網頁，使用 opencc-js s2twp 轉換為台灣繁體中文。
 // @author       ethanics
@@ -76,47 +76,13 @@
     return null;
   }
 
-  function isSimplifiedChinese() {
-    const step1Result = checkStep1Lang();
-    if (step1Result !== null) {
-      return step1Result;
-    }
+  const cjkRegex = /[\u4e00-\u9fff]/;
 
-    const bodyText = document.body ? document.body.innerText || '' : '';
-    const sample = bodyText.slice(0, 2000);
-
-    let cjkCount = 0;
-    for (let i = 0; i < sample.length; i++) {
-      const code = sample.charCodeAt(i);
-      if (code >= 0x4e00 && code <= 0x9fff) {
-        cjkCount++;
-      }
-    }
-
-    if (cjkCount < 50) {
+  function isSimplifiedChinese(text) {
+    if (typeof text !== 'string') {
       return false;
     }
-
-    const converted = converter(sample);
-    let cjkTotal = 0;
-    let cjkDiff = 0;
-
-    for (let i = 0; i < sample.length; i++) {
-      const code = sample.charCodeAt(i);
-      if (code >= 0x4e00 && code <= 0x9fff) {
-        cjkTotal++;
-        if (sample[i] !== converted[i]) {
-          cjkDiff++;
-        }
-      }
-    }
-
-    const diffRatio = cjkTotal > 0 ? cjkDiff / cjkTotal : 0;
-    if (diffRatio > 0.02) {
-      return true;
-    }
-
-    return false;
+    return cjkRegex.test(text);
   }
 
   const SKIP_TAGS = new Set([
@@ -158,7 +124,7 @@
       return;
     }
     const val = element.getAttribute(attr);
-    if (!val) {
+    if (!val || !isSimplifiedChinese(val)) {
       return;
     }
     const converted = converter(val);
@@ -214,6 +180,9 @@
     }
 
     const original = node.nodeValue;
+    if (!isSimplifiedChinese(original)) {
+      return;
+    }
     const converted = converter(original);
     if (original !== converted) {
       node.nodeValue = converted;
@@ -262,6 +231,9 @@
     for (let i = 0; i < textNodes.length; i++) {
       const textNode = textNodes[i];
       const original = textNode.nodeValue;
+      if (!isSimplifiedChinese(original)) {
+        continue;
+      }
       const converted = converter(original);
       if (original !== converted) {
         textNode.nodeValue = converted;
@@ -343,17 +315,25 @@
   }
 
   function main() {
-    if (!isSimplifiedChinese()) {
+    const langResult = checkStep1Lang();
+    if (langResult === false) {
       return;
     }
 
-    if (document.title) {
-      document.title = converter(document.title);
-    }
+    const bodyText = document.body ? document.body.innerText || '' : '';
+    if (langResult === true || isSimplifiedChinese(bodyText)) {
+      if (document.title) {
+        const originalTitle = document.title;
+        const convertedTitle = converter(originalTitle);
+        if (originalTitle !== convertedTitle) {
+          document.title = convertedTitle;
+        }
+      }
 
-    if (document.body) {
-      convertSubtree(document.body);
-      observeDynamicChanges(document);
+      if (document.body) {
+        convertSubtree(document.body);
+        observeDynamicChanges(document);
+      }
     }
   }
 
