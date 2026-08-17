@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name         Auto CHS→CHT (Taiwan)
 // @name:zh-TW   自動繁體化（台灣）
-// @version      1.0.4
+// @version      1.0.5
 // @description  Automatically detects Simplified Chinese pages and converts to Traditional Chinese (Taiwan) using opencc-js s2twp.
 // @description:zh-TW  自動偵測簡體中文網頁，使用 opencc-js s2twp 轉換為台灣繁體中文。
 // @author       ethanics
 // @match        *://*/*
-// @grant        none
+// @grant        unsafeWindow
 // @require      https://cdn.jsdelivr.net/npm/opencc-js@1.4.1/dist/umd/full.js
 // @downloadURL  https://raw.githubusercontent.com/ethanics/auto-chs-to-cht/refs/heads/main/auto-chs-to-cht.user.js
 // @updateURL    https://raw.githubusercontent.com/ethanics/auto-chs-to-cht/refs/heads/main/auto-chs-to-cht.user.js
@@ -16,11 +16,25 @@
 (function () {
   'use strict';
 
-  if (typeof OpenCC === 'undefined' || !OpenCC.Converter) {
-    return;
+  function getOpenCC() {
+    if (
+      typeof OpenCC !== 'undefined' &&
+      OpenCC &&
+      typeof OpenCC.Converter === 'function'
+    ) {
+      return OpenCC;
+    }
+
+    const pageWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+    const pageOpenCC = pageWindow ? pageWindow.OpenCC : null;
+    if (pageOpenCC && typeof pageOpenCC.Converter === 'function') {
+      return pageOpenCC;
+    }
+
+    return null;
   }
 
-  const converter = OpenCC.Converter({ from: 'cn', to: 'twp' });
+  let converter = null;
 
   function detectLang(langStr) {
     if (!langStr || typeof langStr !== 'string') {
@@ -245,6 +259,8 @@
 
   const observedRoots = new WeakSet();
   let dynamicObserver = null;
+  let initialized = false;
+  const startupObserver = new MutationObserver(main);
 
   function observeShadowRoots(root) {
     if (!root || !root.querySelectorAll) {
@@ -315,27 +331,55 @@
   }
 
   function main() {
+    if (initialized) {
+      return;
+    }
+
+    const openCC = getOpenCC();
+    if (!openCC || !openCC.Converter) {
+      return;
+    }
+
     const langResult = checkStep1Lang();
     if (langResult === false) {
+      initialized = true;
+      startupObserver.disconnect();
       return;
     }
 
     const bodyText = document.body ? document.body.innerText || '' : '';
-    if (langResult === true || isSimplifiedChinese(bodyText)) {
-      if (document.title) {
-        const originalTitle = document.title;
-        const convertedTitle = converter(originalTitle);
-        if (originalTitle !== convertedTitle) {
-          document.title = convertedTitle;
-        }
+    if (langResult !== true && !isSimplifiedChinese(bodyText)) {
+      if (!bodyText) {
+        return;
       }
 
-      if (document.body) {
-        convertSubtree(document.body);
-        observeDynamicChanges(document);
+      initialized = true;
+      startupObserver.disconnect();
+      return;
+    }
+
+    converter = openCC.Converter({ from: 'cn', to: 'twp' });
+    initialized = true;
+    startupObserver.disconnect();
+
+    if (document.title) {
+      const originalTitle = document.title;
+      const convertedTitle = converter(originalTitle);
+      if (originalTitle !== convertedTitle) {
+        document.title = convertedTitle;
       }
+    }
+
+    if (document.body) {
+      convertSubtree(document.body);
+      observeDynamicChanges(document);
     }
   }
 
+  startupObserver.observe(document, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+  });
   main();
 })();
