@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto CHS→CHT (Taiwan)
 // @name:zh-TW   自動繁體化（台灣）
-// @version      1.0.5
+// @version      1.0.6
 // @description  Automatically detects Simplified Chinese pages and converts to Traditional Chinese (Taiwan) using opencc-js s2twp.
 // @description:zh-TW  自動偵測簡體中文網頁，使用 opencc-js s2twp 轉換為台灣繁體中文。
 // @author       ethanics
@@ -54,19 +54,6 @@
       lang.startsWith('zh-sg-')
     ) {
       return true;
-    }
-
-    if (
-      lang === 'zh-tw' ||
-      lang === 'zh-hant' ||
-      lang === 'zh-hk' ||
-      lang === 'zh-mo' ||
-      lang.startsWith('zh-hant-') ||
-      lang.startsWith('zh-tw-') ||
-      lang.startsWith('zh-hk-') ||
-      lang.startsWith('zh-mo-')
-    ) {
-      return false;
     }
 
     return null;
@@ -260,6 +247,8 @@
   const observedRoots = new WeakSet();
   let dynamicObserver = null;
   let initialized = false;
+  let startupRetryCount = 0;
+  const MAX_STARTUP_RETRIES = 50;
   const startupObserver = new MutationObserver(main);
 
   function observeShadowRoots(root) {
@@ -350,6 +339,11 @@
     const bodyText = document.body ? document.body.innerText || '' : '';
     if (langResult !== true && !isSimplifiedChinese(bodyText)) {
       if (!bodyText) {
+        return;
+      }
+
+      startupRetryCount++;
+      if (startupRetryCount < MAX_STARTUP_RETRIES) {
         return;
       }
 
