@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto CHS→CHT (Taiwan)
 // @name:zh-TW   自動正體中文化
-// @version      1.0.12
+// @version      1.0.13
 // @description  Automatically detects Simplified Chinese pages and converts to Traditional Chinese (Taiwan) using opencc-js s2twp.
 // @description:zh-TW  自動偵測簡體中文網頁，使用 opencc-js s2twp 轉換為正體中文。
 // @author       ethanics
@@ -35,7 +35,6 @@
   }
 
   let converter = null;
-  let isAlwaysConvertMode = false;
 
   function detectLang(langStr) {
     if (!langStr || typeof langStr !== 'string') {
@@ -48,17 +47,6 @@
 
     if (lang === 'ja' || lang.startsWith('ja-')) {
       return false;
-    }
-
-    if (
-      lang === 'zh-cn' ||
-      lang === 'zh-hans' ||
-      lang === 'zh-sg' ||
-      lang.startsWith('zh-hans-') ||
-      lang.startsWith('zh-cn-') ||
-      lang.startsWith('zh-sg-')
-    ) {
-      return true;
     }
 
     return null;
@@ -99,15 +87,11 @@
     if (!cjkRegex.test(text)) {
       return false;
     }
-    // Fast path 2: If the page is explicitly declared as Simplified Chinese, any CJK text is eligible
-    if (isAlwaysConvertMode) {
-      return true;
-    }
-    // Fast path 3: definitive simplified-only characters → must convert
+    // Fast path 2: definitive simplified-only characters → must convert
     if (simpCharRegex.test(text)) {
       return true;
     }
-    // Fast path 4: Traditional phrases with shared characters → not simplified
+    // Fast path 3: Traditional phrases with shared characters → not simplified
     if (tradSharedPhraseRegex.test(text)) {
       return false;
     }
@@ -451,10 +435,6 @@
       initialized = true;
       startupObserver.disconnect();
       return;
-    }
-
-    if (langResult === true) {
-      isAlwaysConvertMode = true;
     }
 
     converter = openCC.Converter({ from: 'cn', to: 'twp' });
