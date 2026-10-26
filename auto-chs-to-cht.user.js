@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         Auto CHS→CHT (Taiwan)
 // @name:zh-TW   自動正體中文化
-// @version      1.0.13
+// @version      1.0.14
 // @description  Automatically detects Simplified Chinese pages and converts to Traditional Chinese (Taiwan) using opencc-js s2twp.
 // @description:zh-TW  自動偵測簡體中文網頁，使用 opencc-js s2twp 轉換為正體中文。
 // @author       ethanics
 // @match        *://*/*
 // @grant        unsafeWindow
 // @require      https://cdn.jsdelivr.net/npm/opencc-js@1.4.1/dist/umd/full.js
-// @downloadURL  https://raw.githubusercontent.com/ethanics/auto-chs-to-cht/refs/heads/main/auto-chs-to-cht.user.js
-// @updateURL    https://raw.githubusercontent.com/ethanics/auto-chs-to-cht/refs/heads/main/auto-chs-to-cht.user.js
+// @downloadURL  https://raw.githubusercontent.com/ethanics/auto-chs-to-cht/main/auto-chs-to-cht.user.js
+// @updateURL    https://raw.githubusercontent.com/ethanics/auto-chs-to-cht/main/auto-chs-to-cht.user.js
 // @run-at       document-end
 // ==/UserScript==
 

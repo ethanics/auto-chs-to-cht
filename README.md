@@ -20,11 +20,11 @@
 ## 安裝腳本
 
 1. 確認 Tampermonkey 已安裝完成
-2. 點擊下方連結：
+2. 點擊下方連結前往 Greasy Fork 安裝頁面：
 
-   👉 **[安裝 auto-chs-to-cht.user.js](auto-chs-to-cht.user.js)** （在 Github 上點擊後請再點擊 Raw）
+   👉 **[前往 Greasy Fork 安裝](https://greasyfork.org/zh-TW/scripts/602335-auto-chs-cht-taiwan)**
 
-3. Tampermonkey 會自動跳出確認頁面，點「安裝」即完成
+3. 點擊頁面上的「安裝腳本」，Tampermonkey 會跳出確認頁面，點「安裝」即完成
 
 ---
 
@@ -75,4 +75,4 @@
 
 ## 版本
 
-`v1.0.13`
+`v1.0.14`
